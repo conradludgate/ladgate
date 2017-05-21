@@ -3,65 +3,69 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
+	"strings"
+	"time"
 
 	irc "github.com/fluffle/goirc/client"
+	"github.com/spf13/viper"
 )
 
-type client struct {
-	conn  *irc.Conn
-	Admin string
+func main() {
+	Connections = make(map[string]*irc.Conn)
+	LoadCoreSettings()
+	<-LoadCore()
 }
 
-type config struct {
-	servers map[string]struct {
-		SSL   bool
-		Admin string
-		Chans []string
+func LoadCoreSettings() {
+	viper.SetDefault("Server", "localhost:6667")
+	viper.SetDefault("SSL", false)
+
+	viper.SetDefault("Nick", "ladgate")
+	viper.SetDefault("Ident", "Ladgate IRC Interface")
+	viper.SetDefault("Name", "https://github.com/conradludgate/ladgate")
+
+	viper.SetConfigName("config")
+
+	viper.AddConfigPath("/etc/ladgate")
+	viper.AddConfigPath("$HOME/.config/ladgate")
+	viper.AddConfigPath("$HOME/.ladgate")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Println(err)
 	}
 }
 
-func main() {
-	cfg := irc.NewConfig("ladgate", "Ladgate IRC Bot", "Developed by Oon")
-	cfg.Version = "Ladgate 0.1"
-	cfg.QuitMessage = "Piece out suckas!"
+func LoadCore() chan bool {
+	cfg := irc.NewConfig("core", "IRC Bot core",
+		"https://github.com/conradludgate/ladgate")
 
-	cfg.SSL = true
-	cfg.SSLConfig = &tls.Config{ServerName: "irc.esper.net"}
-	cfg.Server = "irc.esper.net:6697"
+	cfg.Server = viper.GetString("Server")
+	cfg.Pass = viper.GetString("Pass")
 
-	c := irc.Client(cfg)
+	cfg.SSL = viper.GetBool("SSL")
 
-	c.HandleFunc(irc.CONNECTED, func(conn *irc.Conn, line *irc.Line) {
-		fmt.Println("Connected")
-	})
+	if cfg.SSL {
+		cfg.SSLConfig = &tls.Config{ServerName: strings.Split(cfg.Server, ":")[0]}
+	}
+
+	core := irc.Client(cfg)
+	core.EnableStateTracking()
 
 	quit := make(chan bool)
-	c.HandleFunc(irc.DISCONNECTED, func(conn *irc.Conn, line *irc.Line) {
-		quit <- true
+	core.HandleFunc(irc.DISCONNECTED, func(conn *irc.Conn, line *irc.Line) {
+		time.Sleep(time.Second * 10)
+		core.Connect()
 	})
 
-	c.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
-		fmt.Println(line.Public(), line.Text(), line.Args, line.Cmd, line.Ident)
-		conn.Join(line.Text())
-	})
+	core.HandleFunc(irc.INVITE, CoreOnInvite)
+	core.HandleFunc(irc.PRIVMSG, CoreOnPrivMsg)
 
-	if err := c.ConnectTo("irc.esper.net"); err != nil {
-		fmt.Printf("Connection error: %s\n", err.Error())
+	if err := core.Connect(); err != nil {
+		fmt.Println(err.Error())
 		quit <- true
 	}
 
-	<-quit
-}
-
-func NewConn(servername, server string, ssl bool) {
-	cfg := irc.NewConfig("ladgate", "Ladgate IRC Bot", "Developed by Oon")
-	cfg.Version = "Ladgate 0.1"
-	cfg.QuitMessage = "Piece out suckas!"
-
-	cfg.SSL = ssl
-	cfg.SSLConfig = &tls.Config{ServerName: servername}
-	cfg.Server = server
-
-	irc.Client(cfg)
-
+	return quit
 }
