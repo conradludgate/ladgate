@@ -41,6 +41,7 @@ func CoreOnPrivMsg(conn *irc.Conn, line *irc.Line) {
 			msg, _ := json.Marshal(resp)
 
 			conn.Privmsg(line.Target(), string(msg))
+			break
 		}
 		CoreConnect(conn, line, command, req)
 
@@ -50,6 +51,7 @@ func CoreOnPrivMsg(conn *irc.Conn, line *irc.Line) {
 			msg, _ := json.Marshal(resp)
 
 			conn.Privmsg(line.Target(), string(msg))
+			break
 		}
 
 		Connections[line.Target()].Quit("Goodbye.")
@@ -61,11 +63,21 @@ func CoreOnPrivMsg(conn *irc.Conn, line *irc.Line) {
 			msg, _ := json.Marshal(resp)
 
 			conn.Privmsg(line.Target(), string(msg))
+			break
 		}
 		Connections[line.Target()].Raw(command.Raw)
 
 	case "PRIVMSG", "ACTION":
+		if !(module.Op || module.Owner || module.HalfOp || module.Voice) {
+			resp := Message{"Only +v or above can run this command", "", "", line.Nick}
+			msg, _ := json.Marshal(resp)
+
+			conn.Privmsg(line.Target(), string(msg))
+			break
+		}
 		Connections[line.Target()].Raw(command.Raw)
+
+	case "":
 	}
 }
 

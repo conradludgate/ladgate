@@ -40,5 +40,5 @@ func main() {
 }
 
 func OnInvite(module *module.Module, line *module.Line) {
-
+	module.Raw(line, irc.JOIN+" "+line.Line.Text())
 }

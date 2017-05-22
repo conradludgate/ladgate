@@ -11,15 +11,19 @@ type Module struct {
 	handlers *hSet
 }
 
-type Line struct {
+type Message struct {
 	Error, Command, Channel, ToModule string
+}
+
+type Line struct {
+	Message Message
 
 	Full, Line *irc.Line
 }
 
 func (l *Line) Copy() *Line {
 	nl := Line{
-		l.Error, l.Command, l.Channel, l.ToModule,
+		l.Message,
 		l.Full.Copy(), l.Line.Copy(),
 	}
 
@@ -40,18 +44,16 @@ func Client(cfg *irc.Config) *Module {
 	}
 
 	conn.HandleFunc(irc.PRIVMSG, func(conn *irc.Conn, line *irc.Line) {
-		var req Line
-		if err := json.Unmarshal([]byte(line.Text()), &req); err != nil {
+		var msg Message
+		if err := json.Unmarshal([]byte(line.Text()), &msg); err != nil {
 			return
 		}
 
-		if req.ToModule != conn.Me().Nick {
+		if msg.ToModule != "" && msg.ToModule != conn.Me().Nick {
 			return
 		}
 
-		req.Full = line
-		req.Line = irc.ParseLine(req.Command)
-		module.handlers.dispatch(module, &req)
+		module.handlers.dispatch(module, &Line{msg, line, irc.ParseLine(msg.Command)})
 	})
 
 	conn.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
