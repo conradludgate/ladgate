@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 )
 
 type message struct {
-	Data   string    `json:"data"`
-	Module string    `json:"module"`
-	Perms  int       `json:"perms"`
-	Time   time.Time `json:"time"`
+	Protocol string    `json:"protocol"`
+	Data     string    `json:"data"`
+	Module   string    `json:"module"`
+	Perms    int       `json:"perms"`
+	Time     time.Time `json:"time"`
 }
 
 const storedMessages int = 50
@@ -80,57 +80,9 @@ func setMessage(w http.ResponseWriter, r *http.Request) {
 			messages[proto] = &messageQueue{}
 		}
 
-		messages[proto].addMessage(message{r.FormValue("data"), module, perms, time.Now()})
+		messages[proto].addMessage(message{proto, r.FormValue("data"), module, perms, time.Now()})
 
 		io.WriteString(w, "Set message '"+r.FormValue("data")+"' on the protocol '"+proto+"'")
-
-		return
-	}
-
-	w.WriteHeader(http.StatusUnauthorized)
-}
-
-func createNewModule(w http.ResponseWriter, r *http.Request) {
-	_, _, perms := verifyModule(r)
-	if perms&(-1<<31) == (-1 << 31) {
-		key, hash := newKey(12)
-		_, err := newModuleStmt.Exec(r.FormValue("module"), hash, r.FormValue("description"))
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, err.Error())
-			return
-		}
-
-		io.WriteString(w, "Username:\t"+r.FormValue("module")+"\nPassword:\t"+key)
-		return
-	}
-
-	w.WriteHeader(http.StatusUnauthorized)
-}
-
-func givePerms(w http.ResponseWriter, r *http.Request) {
-	proto, _, perms := verifyModule(r)
-	if perms&(-1<<31) == (-1 << 31) {
-		p, err := strconv.Atoi(r.FormValue("perms"))
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, err.Error())
-			return
-		}
-
-		if p < 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "Only the admin (you) can have a negative permission")
-			return
-		}
-
-		if _, err := replacePermsStmt.Exec(r.FormValue("module"), proto, p); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, err.Error())
-			return
-		}
-
-		io.WriteString(w, r.FormValue("module")+" has been granted the permissions "+r.FormValue("perms")+" for the '"+proto+"' protocol")
 
 		return
 	}
