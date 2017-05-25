@@ -77,7 +77,15 @@ func CoreOnPrivMsg(conn *irc.Conn, line *irc.Line) {
 		}
 		Connections[line.Target()].Raw(command.Raw)
 
-	case "":
+	case "NAMES":
+		if !(module.Op || module.Owner || module.HalfOp || module.Voice) {
+			resp := Message{"Only +v or above can run this command", "", "", line.Nick}
+			msg, _ := json.Marshal(resp)
+
+			conn.Privmsg(line.Target(), string(msg))
+			break
+		}
+
 	}
 }
 
