@@ -89,3 +89,7 @@ func setMessage(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusUnauthorized)
 }
+
+func getPerms(w http.ResponseWriter, r *http.Request) {
+
+}

@@ -1,6 +1,10 @@
 package module
 
-import "time"
+import (
+	"log"
+	"net/url"
+	"time"
+)
 
 type Message struct {
 	Protocol string    `json:"protocol"`
@@ -11,29 +15,46 @@ type Message struct {
 }
 
 type Module struct {
-	Server string
+	Server         string
+	Name, Password string
+	Protocols      []string
 
 	Refresh time.Duration
 
-	Name, Password string
-
 	HSet Handler
+
+	quit chan bool
 }
 
-func NewModule(server, name, password string, handler Handler) *Module {
-	if handler == nil {
-		handler = DefaultHandlerSet
-	}
+func NewModule(server, name, password string) (*Module, error) {
 
-	return &Module{
-		server,
-		100 * time.Millisecond,
-		name,
-		password,
-		handler,
-	}
+}
+
+func (m *Module) Close() {
+	m.quit <- true
+}
+
+func (m *Module) Listen() {
+	m.quit = make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			case <-time.After(time.Second):
+				m.Poll()
+			}
+		}
+	}()
 }
 
 func (m *Module) Poll() {
+	u, err := url.Parse(m.Server)
+	if err != nil {
+		log.Panic("Invalid Server URL:", m.Server)
+	}
+
+	u.RawPath = "/get"
 
 }
