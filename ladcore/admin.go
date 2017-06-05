@@ -7,8 +7,8 @@ import (
 )
 
 func createNewModule(w http.ResponseWriter, r *http.Request) {
-	_, _, perms := verifyModule(r)
-	if perms&(1<<31) == (1 << 31) {
+	_, _, perms := getModulePermsHTTP(r)
+	if perms&ADMIN == ADMIN {
 		key, hash := newKey(12)
 		_, err := newModuleStmt.Exec(r.FormValue("module"), hash, r.FormValue("description"))
 		if err != nil {
@@ -25,8 +25,8 @@ func createNewModule(w http.ResponseWriter, r *http.Request) {
 }
 
 func givePerms(w http.ResponseWriter, r *http.Request) {
-	proto, _, perms := verifyModule(r)
-	if perms&(1<<31) == (1 << 31) {
+	proto, _, perms := getModulePermsHTTP(r)
+	if perms&ADMIN == ADMIN {
 		p, err := strconv.Atoi(r.FormValue("perms"))
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -34,13 +34,13 @@ func givePerms(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if p&(-1<<31) == (-1 << 31) {
+		if p&SUPERADMIN == SUPERADMIN {
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, "Only the superadmin can have a negative permission")
 			return
 		}
 
-		if p&(1<<31) == (1<<31) && perms&(-1<<31) != (-1<<31) {
+		if p&ADMIN == ADMIN && perms&SUPERADMIN != SUPERADMIN {
 			w.WriteHeader(http.StatusUnauthorized)
 			io.WriteString(w, "Only the superadmin can make more admins")
 			return

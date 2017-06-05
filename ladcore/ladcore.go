@@ -6,10 +6,19 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var adminHash []byte
+
+const (
+	GET int = 1
+	SET int = 2
+
+	ADMIN      int = 1 << 31
+	SUPERADMIN int = -1 << 31
+)
 
 func main() {
 	if err := OpenModuleDB("ladcore.db"); err != nil {
@@ -37,17 +46,35 @@ func newKey(cost int) (string, []byte) {
 	return base64.StdEncoding.EncodeToString(key), hash
 }
 
-func verifyModule(r *http.Request) (proto, module string, perms int) {
+func getModulePermsHTTP(r *http.Request) (string, string, int) {
 	user, pass, ok := r.BasicAuth()
-	proto = r.FormValue("protocol")
+	proto := r.FormValue("proto")
 
 	if !ok {
-		return
+		return proto, user, 0
 	}
 
-	module = user
+	return proto, user, getModulePerms(proto, user, pass)
+}
 
-	if module == "admin" {
+type wsInit struct {
+	Protocol string `json:"protocol"`
+	Module   string `json:"module"`
+	Password string `json:"password"`
+}
+
+func getModulePermsWS(conn *websocket.Conn) (string, string, int) {
+	var d wsInit
+
+	if conn.ReadJSON(&d) != nil {
+		return d.Protocol, d.Module, 0
+	}
+
+	return d.Protocol, d.Module, getModulePerms(d.Protocol, d.Module, d.Password)
+}
+
+func getModulePerms(proto, user, pass string) (perms int) {
+	if user == "admin" {
 		key, err := base64.StdEncoding.DecodeString(pass)
 		if err != nil {
 			return
@@ -67,13 +94,13 @@ func verifyModule(r *http.Request) (proto, module string, perms int) {
 	}
 
 	var hash []byte
-	getHashStmt.QueryRow(module).Scan(&hash)
+	getHashStmt.QueryRow(user).Scan(&hash)
 
 	if bcrypt.CompareHashAndPassword(hash, key) != nil {
 		return
 	}
 
-	getPermsStmt.QueryRow(proto).Scan(&perms)
+	getPermsStmt.QueryRow(user, proto).Scan(&perms)
 
 	return
 }

@@ -1,18 +1,21 @@
 package module
 
-import "sync"
+import (
+	"sync"
+)
 
 type Handler interface {
-	ServeMessage(Message)
+	ServeMessage(*Module, Message)
 }
 
-type HandlerFunc func(Message)
+type HandlerFunc func(*Module, Message)
 
-func NotFound(message Message) {}
-func NotFoundHandler = HandlerFunc(NotFound)
+func NotFound(m *Module, message Message) {}
 
-func (f HandlerFunc) ServeMessage(message Message) {
-	f(message)
+var NotFoundHandler = HandlerFunc(NotFound)
+
+func (f HandlerFunc) ServeMessage(m *Module, message Message) {
+	f(m, message)
 }
 
 type HandlerSet struct {
@@ -30,7 +33,7 @@ type handlerEntry struct {
 	protocol string
 }
 
-func (hs *HandlerSet) Handler(message Message) (h Handler) {
+func (hs *HandlerSet) Handler(message Message) Handler {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 	h, ok := hs.h[message.Protocol]
@@ -39,12 +42,11 @@ func (hs *HandlerSet) Handler(message Message) (h Handler) {
 		return NotFoundHandler
 	}
 
-	return h
+	return h.h
 }
 
-func (hs *HandlerSet) ServeMessage(message Message) {
-	h, _ := hs.Handler(message)
-	h.Handle(message)
+func (hs *HandlerSet) ServeMessage(m *Module, message Message) {
+	hs.Handler(message).ServeMessage(m, message)
 }
 
 func (hs *HandlerSet) Handle(protocol string, handler Handler) {
@@ -68,11 +70,11 @@ func (hs *HandlerSet) Handle(protocol string, handler Handler) {
 	hs.h[protocol] = handlerEntry{explicit: true, h: handler, protocol: protocol}
 }
 
-func (hs *HandlerSet) HandleFunc(protocol string, handler func(ResponseWriter, *Request)) {
-	hs.Handle(pattern, HandlerFunc(handler))
+func (hs *HandlerSet) HandleFunc(protocol string, handler func(*Module, Message)) {
+	hs.Handle(protocol, HandlerFunc(handler))
 }
 
 func Handle(protocol string, handler Handler) { DefaultHandlerSet.Handle(protocol, handler) }
-func HandleFunc(protocol string, handler func(ResponseWriter, *Request)) {
-	DefaultHandlerSet.Handle(pattern, HandlerFunc(handler))
+func HandleFunc(protocol string, handler func(*Module, Message)) {
+	DefaultHandlerSet.Handle(protocol, HandlerFunc(handler))
 }

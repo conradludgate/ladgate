@@ -23,14 +23,14 @@ func OpenModuleDB(path string) error {
 }
 
 const (
-	dbInit = `CREATE TABLE OR IGNORE
+	dbInit = `CREATE TABLE IF NOT EXISTS
 	module (
 		name STRING PRIMARY KEY,
 		hash BLOB,
 		desc STRING
 	);
 
-	CREATE TABLE OR IGNORE
+	CREATE TABLE IF NOT EXISTS
 	perms (
 		name STRING,
 		protocol STRING,
