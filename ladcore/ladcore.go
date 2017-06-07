@@ -31,7 +31,7 @@ func main() {
 	fmt.Println("Password:", key)
 	key = ""
 
-	loadHttpServer(":2367", "", "")
+	loadHttpServer(LoadConfig())
 }
 
 func newKey(cost int) (string, []byte) {

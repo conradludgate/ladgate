@@ -25,8 +25,7 @@ func loadHttpServer(addr, certFile, keyFile string) {
 
 	http.HandleFunc("/ws", websockets)
 
-	//http.ListenAndServeTLS(addr, certFile, keyFile, nil)
-	http.ListenAndServe(addr, nil)
+	log.Fatal(http.ListenAndServeTLS(addr, certFile, keyFile, nil))
 }
 
 func BasicAuth(handler http.HandlerFunc) http.HandlerFunc {

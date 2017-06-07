@@ -24,11 +24,17 @@ func LoadConfig(name string) (URL string, Name string, password string) {
 
 	viper.SetConfigName(*config)
 
+	viper.AddConfigPath("/etc/ladgate")
+	viper.AddConfigPath("/etc/ladgate/" + *moduleName)
 	viper.AddConfigPath("$HOME/.config")
 	viper.AddConfigPath("$HOME/.config/ladgate")
+	viper.AddConfigPath("$HOME/.config/ladgate/" + *moduleName)
 	viper.AddConfigPath("$HOME/.ladgate")
+	viper.AddConfigPath("$HOME/.ladgate/" + *moduleName)
 	viper.AddConfigPath(".")
+	viper.AddConfigPath(*moduleName)
 	viper.AddConfigPath("$HOME")
+	viper.AddConfigPath("$HOME/" + *moduleName)
 
 	//viper.RegisterAlias("url", *moduleName+".url")
 	//viper.RegisterAlias("port", *moduleName+".port")
@@ -37,7 +43,10 @@ func LoadConfig(name string) (URL string, Name string, password string) {
 	viper.BindPFlag(*moduleName+".port", flag.Lookup("port"))
 	viper.BindPFlag(*moduleName+".password", flag.Lookup("pass"))
 
-	viper.ReadInConfig()
+	if viper.ReadInConfig() == viper.ConfigFileNotFoundError {
+		viper.SetConfigName(*moduleName)
+		viper.ReadInConfig()
+	}
 
 	URL = viper.GetString(*moduleName + ".url")
 	if URL == "" {
