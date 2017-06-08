@@ -43,7 +43,7 @@ func LoadConfig(name string) (URL string, Name string, password string) {
 	viper.BindPFlag(*moduleName+".port", flag.Lookup("port"))
 	viper.BindPFlag(*moduleName+".password", flag.Lookup("pass"))
 
-	if viper.ReadInConfig() == viper.ConfigFileNotFoundError {
+	if viper.ReadInConfig() != nil {
 		viper.SetConfigName(*moduleName)
 		viper.ReadInConfig()
 	}
@@ -70,7 +70,7 @@ func LoadConfig(name string) (URL string, Name string, password string) {
 	}
 
 	if u.Scheme == "" {
-		u, _ = url.Parse("ws://" + URL)
+		u, _ = url.Parse("wss://" + URL)
 	}
 
 	if u.Port() == "" {
