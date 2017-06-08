@@ -25,11 +25,20 @@ func websockets(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
-	proto, _, perms := getModulePermsWS(conn)
+	proto, module, perms := getModulePermsWS(conn)
+
+	if perms&3 == 0 {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	_, ok := conns[proto]
+	if !ok {
+		conns[proto] = make(map[string]*websocket.Conn)
+	}
 
 	if perms&GET == GET {
-		conns[proto] = append(conns[proto], conn)
-		//go subMessages(conn, proto, &quit)
+		conns[proto][module] = append(conns[proto], conn)
 	}
 
 	if perms&SET == SET {
@@ -39,20 +48,16 @@ func websockets(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if perms&2 == 2 {
-				m.Perms = perms
-				m.Time = time.Now()
+			m.Perms = perms
+			m.Time = time.Now()
 
-				for i := 0; i < len(conns[proto]); i++ {
-					v := conns[proto][i]
-					if v == conn {
-						continue
-					}
+			for k, v := range conns[proto] {
+				if k == module {
+					continue
+				}
 
-					if v.WriteJSON(m) != nil {
-						conns[proto] = append(conns[proto][:i], conns[proto][i+1:]...)
-						i--
-					}
+				if v.WriteJSON(m) != nil {
+					delete(conns[proto], k)
 				}
 			}
 		}

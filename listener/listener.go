@@ -23,5 +23,5 @@ func main() {
 }
 
 func HandleMessage(m *module.Module, msg module.Message) {
-	fmt.Printf("%s | %s\t | %s", msg.Time.Format("2006-01-02 15:04:05"), msg.Module, msg.Data)
+	fmt.Printf("%s | %s\t | %s\n", msg.Time.Format("2006-01-02 15:04:05"), msg.Module, msg.Data)
 }

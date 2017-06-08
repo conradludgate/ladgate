@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/conradludgate/ladgate/module"
 	flag "github.com/spf13/pflag"
@@ -10,20 +12,22 @@ import (
 
 func main() {
 	protocol := flag.String("protocol", "", "Ladgate Protocol to listen on")
-	m := module.NewModule(module.LoadConfig("admin"))
+
+	url, name, pass := module.LoadConfig("admin")
+	m := module.NewModule(url, name, pass)
 
 	if *protocol == "" {
 		fmt.Println("Please provide a protocol")
 		return
 	}
 
-	go log.Fatal(m.Listen(*protocol, nil))
+	go func() {
+		log.Fatal(m.Listen(*protocol, nil))
+	}()
 
-	for {
-		fmt.Print(flag.Lookup("name").Value.String() + ": ")
-		var msg string
-		fmt.Scanln(&msg)
+	scanner := bufio.NewScanner(os.Stdin)
 
-		m.SendMessage(*protocol, msg)
+	for fmt.Print(name + ": "); scanner.Scan(); fmt.Print(name + ": ") {
+		m.SendMessage(*protocol, scanner.Text())
 	}
 }

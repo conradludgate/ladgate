@@ -16,7 +16,7 @@ type message struct {
 	Time     time.Time `json:"time"`
 }
 
-var conns = make(map[string][]*websocket.Conn)
+var conns = make(map[string]map[string]*websocket.Conn)
 
 func loadHttpServer(addr, certFile, keyFile string) {
 	http.HandleFunc("/set", BasicAuth(setMessage))
@@ -50,11 +50,18 @@ func setMessage(w http.ResponseWriter, r *http.Request) {
 
 		m := message{proto, r.FormValue("data"), module, perms, time.Now()}
 
-		for i := 0; i < len(conns[proto]); i++ {
-			v := conns[proto][i]
+		_, ok := conns[proto]
+		if !ok {
+			return
+		}
+
+		for k, v := range conns[proto] {
+			if k == module {
+				continue
+			}
+
 			if v.WriteJSON(m) != nil {
-				conns[proto] = append(conns[proto][:i], conns[proto][i+1:]...)
-				i--
+				delete(conns[proto], k)
 			}
 		}
 
