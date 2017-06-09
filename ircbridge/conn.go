@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+
 	"github.com/conradludgate/ladgate/module"
 	irc "github.com/fluffle/goirc/client"
 )
@@ -13,7 +15,7 @@ func NewConn(m *module.Module, server string, cfg *irc.Config) {
 	Connections[server] = c
 
 	onEvent := func(conn *irc.Conn, line *irc.Line) {
-		m.SendMessage("irc", server+": "+line.Raw)
+		io.WriteString(m, server+": "+line.Raw)
 	}
 
 	c.EnableStateTracking()

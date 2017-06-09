@@ -1,46 +1,49 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"io"
 	"strings"
 
+	"github.com/conradludgate/ladgate/irc"
 	"github.com/conradludgate/ladgate/module"
-	irc "github.com/fluffle/goirc/client"
 )
 
 func main() {
-	m := module.NewModule(module.LoadConfig("cmdlet"))
+	ircModule := module.NewModule(module.LoadConfig("cmdlet"))
 
-	module.HandleFunc("irc", HandleIRC)
+	ircHandler := module.NewPatternHandler()
+	ircHandler.HandleFunc(irc.PatternPRIVMSG)
+
+	module.HandleFunc(module.Pattern(MatchCommandlet), HandleIRC).Perms(irc.PermIRCBridge)
 
 	// go log.Fatal(m.Listen("messenger", nil))
 	// go log.Fatal(m.Listen("discord", nil))
-	log.Fatal(m.Listen("irc", nil))
+	ircModule.Connect(irc.Protocol, irc.FinallyHandler{ircHandler})
+
+	for {
+	}
 }
 
-func HandleIRC(m *module.Module, msg module.Message) {
-	split := strings.SplitN(msg.Data, ": ", 2)
-	if len(split) < 2 {
-		return
-	}
+func MatchCommandlet(message string) (match bool) {
+	if irc.PatternPRIVMSG.Match(message) {
+		match = true
 
-	server := split[0]
-	data := split[1]
-
-	command := irc.ParseLine(data)
-	if command.Cmd != irc.PRIVMSG {
-		return
+		msg, _ := irc.ParseMessage(message)
+		text := strings.Trim(msg.Text(), " ")
+		if len(text) < 2 {
+			return false
+		}
+		if text[0] != '!' {
+			match = false
+		}
 	}
+	return
+}
 
-	text := strings.Trim(command.Text(), " ")
-	if len(text) < 2 {
-		return
-	}
-	if text[0] != '!' {
-		return
-	}
+func HandleIRC(m *module.Module, message module.Message) {
+	msg := irc.ParseMessage(message)
 
+	text := strings.Trim(msg.Text(), " ")
 	split = strings.SplitN(text[1:], " ", 2)
 
 	input := ""
@@ -50,9 +53,8 @@ func HandleIRC(m *module.Module, msg module.Message) {
 
 	r := Commandlet(split[0], input, command.Nick)
 	if r != "" {
-		m.SendMessage("irc", fmt.Sprintf("%s: PRIVMSG %s :%s", server, command.Target(), r))
+		io.WriteString(m, msg.Server+": PRIVMSG "+msg.IRC.Target()+" :"+r)
 	}
-
 }
 
 func Commandlet(command, input, user string) string {

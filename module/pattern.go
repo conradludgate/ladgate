@@ -8,9 +8,13 @@ type Pattern interface {
 
 type PatternFunc func(string) bool
 
-func (pf PatternFunc) Match(in string) bool {
-	return pf(in)
+func (pf PatternFunc) Match(message string) bool {
+	return pf(message)
 }
+
+func MatchAll(message string) bool { return true }
+
+var MatchAllPattern = PatternFunc(MatchAll)
 
 type PatternHandler struct {
 	mu sync.RWMutex
@@ -73,6 +77,6 @@ func (ph *PatternHandler) Handle(pattern Pattern, handler Handler) *PatternHandl
 	return &handle
 }
 
-func (ph *PatternHandler) HandleFunc(pattern Pattern, handler func(*Module, Message)) {
-	ph.Handle(pattern, HandlerFunc(handler))
+func (ph *PatternHandler) HandleFunc(pattern Pattern, handler func(*Module, Message)) *PatternHandle {
+	return ph.Handle(pattern, HandlerFunc(handler))
 }

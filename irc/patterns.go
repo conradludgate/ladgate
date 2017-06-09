@@ -57,7 +57,7 @@ func Finally(message string) {
 	delete(Messages, message)
 }
 
-func (fh *FinallyHandler) ServeMessage(m *module.Module, message module.Message) {
+func (fh FinallyHandler) ServeMessage(m *module.Module, message module.Message) {
 	fh.Handle.ServeMessage(m, message)
 	Finally(message.Data)
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
+	"io"
 	"os"
 
 	"github.com/conradludgate/ladgate/module"
@@ -14,20 +14,22 @@ func main() {
 	protocol := flag.String("protocol", "", "Ladgate Protocol to listen on")
 
 	url, name, pass := module.LoadConfig("admin")
-	m := module.NewModule(url, name, pass)
 
 	if *protocol == "" {
 		fmt.Println("Please provide a protocol")
 		return
 	}
 
-	go func() {
-		log.Fatal(m.Listen(*protocol, nil))
-	}()
+	m := module.NewModule(url, name, pass)
+
+	err := m.Connect(*protocol, nil)
+	if err != nil {
+		panic(err)
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for fmt.Print(name + ": "); scanner.Scan(); fmt.Print(name + ": ") {
-		m.SendMessage(*protocol, scanner.Text())
+		io.WriteString(m, scanner.Text())
 	}
 }

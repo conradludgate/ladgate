@@ -14,10 +14,10 @@ func NotFound(m *Module, message Message) {}
 
 var NotFoundHandler = HandlerFunc(NotFound)
 
-func Handle(pattern Pattern, handler Handler) {
-	DefaultPatternHandler.Handle(pattern, handler)
+func Handle(pattern Pattern, handler Handler) *PatternHandle {
+	return DefaultPatternHandler.Handle(pattern, handler)
 }
 
-func HandleFunc(pattern Pattern, handler func(*Module, Message)) {
-	DefaultPatternHandler.Handle(pattern, HandlerFunc(handler))
+func HandleFunc(pattern Pattern, handler func(*Module, Message)) *PatternHandle {
+	return DefaultPatternHandler.Handle(pattern, HandlerFunc(handler))
 }
