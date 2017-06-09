@@ -16,13 +16,14 @@ type Message struct {
 	Time     time.Time `json:"time"`
 }
 
+// Implements WriteCloser
 type Module struct {
 	Server         string
 	Name, Password string
 
-	HSet Handler
+	Handler Handler
 
-	conns map[string]*websocket.Conn
+	conn *websocket.Conn
 }
 
 func NewModule(server, name, password string) *Module {
@@ -31,84 +32,66 @@ func NewModule(server, name, password string) *Module {
 	m.Name = name
 	m.Password = password
 
-	m.conns = make(map[string]*websocket.Conn)
-
 	return &m
 }
 
-type wsInit struct {
-	Protocol string `json:"protocol"`
-	Module   string `json:"module"`
-	Password string `json:"password"`
-}
-
-func (m *Module) Listen(protocol string, h Handler) error {
+func (m *Module) Connect(protocol string, h Handler) error {
 	if h == nil {
-		m.HSet = DefaultHandlerSet
+		m.Handler = DefaultPatternHandler
 	} else {
-		m.HSet = h
+		m.Handler = h
 	}
 
 	u, err := url.Parse(m.Server)
-
 	if err != nil {
 		return err
 	}
 
 	u.Path = "ws"
 
-	m.conns[protocol], _, err = websocket.DefaultDialer.Dial(u.String(), http.Header{})
+	m.conn, _, err = websocket.DefaultDialer.Dial(u.String(), http.Header{})
 	if err != nil {
 		return err
 	}
-	defer m.conns[protocol].Close()
 
-	quit := false
-	m.conns[protocol].SetCloseHandler(func(code int, text string) error {
+	var quit bool
+	m.conn.SetCloseHandler(func(code int, text string) error {
 		quit = true
 		return nil
 	})
 
-	d := wsInit{
-		protocol,
-		m.Name,
-		m.Password,
-	}
+	d := `{"protocol": "` + protocol + `", "module": "` + m.Name +
+		`", "password": "` + m.Password + `"}`
 
-	err = m.conns[protocol].WriteJSON(d)
+	err = m.conn.WriteMessage(websocket.TextMessage, []byte(d))
 	if err != nil {
 		return err
 	}
 
-	for !quit {
-		var msg Message
-		if m.conns[protocol].ReadJSON(&msg) != nil {
-			continue
-		}
+	go func() {
+		for !quit {
+			var msg Message
+			if m.conn.ReadJSON(&msg) != nil {
+				continue
+			}
 
-		m.HSet.ServeMessage(m, msg)
-	}
+			m.Handler.ServeMessage(m, msg)
+		}
+	}()
 
 	return nil
 }
 
-func (m *Module) SendMessage(protocol, data string) {
-	var msg Message
-	msg.Protocol = protocol
-	msg.Data = data
-	msg.Module = m.Name
-
-	m.conns[protocol].WriteJSON(msg)
-}
-
-func (m *Module) Close(protocol string) {
-	m.conns[protocol].Close()
-}
-
-func (m *Module) CloseAll() {
-	for _, v := range m.conns {
-		if v != nil {
-			v.Close()
-		}
+// Implements io.Writer
+func (m *Module) Write(p []byte) (n int, err error) {
+	err = m.conn.WriteMessage(websocket.TextMessage, p)
+	if err != nil {
+		return 0, err
 	}
+	return len(p), nil
+}
+
+// Implements io.Closer,
+func (m *Module) Close() error {
+	return m.conn.Close()
 }

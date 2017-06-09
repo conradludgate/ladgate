@@ -38,7 +38,7 @@ func websockets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if perms&GET == GET {
-		conns[proto][module] = append(conns[proto], conn)
+		conns[proto][module] = conn
 	}
 
 	if perms&SET == SET {
